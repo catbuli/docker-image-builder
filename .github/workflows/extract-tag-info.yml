@@ -1,0 +1,40 @@
+name: Extract Tag Info
+
+on:
+  workflow_call:
+    outputs:
+      tag_name:
+        description: 'Image name extracted from Git tag'
+        value: ${{ jobs.extract-tag.outputs.tag_name }}
+      tag_version:
+        description: 'Version extracted from Git tag (if available)'
+        value: ${{ jobs.extract-tag.outputs.tag_version }}
+      image_folder:
+        description: 'Derived folder path based on tag component'
+        value: ${{ jobs.extract-tag.outputs.image_folder }}
+
+jobs:
+  extract-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.extract_tag.outputs.tag_name }}
+      tag_version: ${{ steps.extract_tag.outputs.tag_version }}
+      image_folder: ${{ steps.extract_tag.outputs.image_folder }}
+    steps:
+      - name: Extract Tag Component
+        id: extract_tag
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" =~ ^([^/]+)/(.+)$ ]]; then
+            echo "tag_name=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            echo "tag_version=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
+            echo "image_folder=images/${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+          elif [[ "$TAG" =~ ^([^/]+)$ ]]; then
+            echo "tag_name=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            echo "tag_version=unknown" >> $GITHUB_OUTPUT
+            echo "image_folder=images/${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+          else
+            echo "Invalid tag format: $TAG"
+            exit 1
+          fi
+        shell: bash

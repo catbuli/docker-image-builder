@@ -1,0 +1,41 @@
+name: Extract Package Info
+
+on:
+  workflow_call:
+    inputs:
+      image_folder:
+        description: 'Path to the folder containing package.json'
+        required: true
+        type: string
+    outputs:
+      image_name:
+        description: 'Name of the image from package.json'
+        value: ${{ jobs.extract-package.outputs.image_name }}
+      image_version:
+        description: 'Version of the image from package.json'
+        value: ${{ jobs.extract-package.outputs.image_version }}
+
+jobs:
+  extract-package:
+    runs-on: ubuntu-latest
+    outputs:
+      image_name: ${{ steps.extract.outputs.image_name }}
+      image_version: ${{ steps.extract.outputs.image_version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Extract Name and Version from package.json
+        id: extract
+        run: |
+          PKG_PATH="${{ inputs.image_folder }}/package.json"
+          if [ -f "$PKG_PATH" ]; then
+            NAME=$(jq -r '.name' "$PKG_PATH")
+            VERSION=$(jq -r '.version' "$PKG_PATH")
+            echo "image_name=$NAME" >> $GITHUB_OUTPUT
+            echo "image_version=$VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "package.json not found at $PKG_PATH"
+            exit 1
+          fi
+        shell: bash

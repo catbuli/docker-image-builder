@@ -1,0 +1,45 @@
+name: Build Docker Image
+
+on:
+  push:
+    tags:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  get-tag-info:
+    uses: ./.github/workflows/extract-tag-info.yml
+
+  get-package-info:
+    needs: get-tag-info
+    uses: ./.github/workflows/extract-package-info.yml
+    with:
+      image_folder: ${{ needs.get-tag-info.outputs.image_folder }}
+
+  build-image:
+    runs-on: ubuntu-latest
+    needs: [get-tag-info, get-package-info]
+    if: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Docker Build
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v4
+        with:
+          context: ${{ needs.get-tag-info.outputs.image_folder }}
+          file: ${{ needs.get-tag-info.outputs.image_folder }}/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ needs.get-package-info.outputs.image_name }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ needs.get-package-info.outputs.image_name }}:${{ needs.get-package-info.outputs.image_version }}
+          platforms: linux/amd64,linux/arm64
